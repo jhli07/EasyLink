@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EasyLink - 跨设备文件传输</title>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    :root {
+      --primary: #00d4ff;
+      --primary-dark: #00a8cc;
+      --bg-dark: #0a0a0f;
+      --bg-card: #12121a;
+      --bg-card-hover: #1a1a25;
+      --text: #ffffff;
+      --text-dim: #8888aa;
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --error: #ff4466;
+      --border: rgba(255,255,255,0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(ellipse at 20% 0%, rgba(0,212,255,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(0,255,136,0.05) 0%, transparent 50%);
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    
+    /* Header */
+    .header { text-align: center; padding: 30px 0; }
+    .header h1 { 
+      font-size: 2.5rem; 
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p { color: var(--text-dim); margin-top: 8px; }
+    
+    /* Main Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+    
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border-radius: 20px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+    .card:hover { background: var(--bg-card-hover); }
+    .card h2 {
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    /* Code Display */
+    .code-display {
+      background: rgba(0,212,255,0.05);
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+    .code-display .label { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 10px; }
+    .code-number { 
+      font-size: 3rem; 
+      font-weight: 800; 
+      letter-spacing: 8px;
+      color: var(--primary);
+      font-family: 'SF Mono', Monaco, monospace;
+    }
+    .qr-code {
+      margin: 20px auto;
+      width: 150px;
+      height: 150px;
+      background: white;
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .qr-code canvas { width: 100% !important; height: 100% !important; }
+    
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 10px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #000;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,212,255,0.3); }
+    .btn-secondary {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.12); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    
+    /* Status */
+    .status {
+      padding: 12px 16px;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 0.9rem;
+      margin-bottom: 15px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+    }
+    .status.connected { border-color: var(--success); color: var(--success); }
+    .status.connecting { border-color: var(--warning); color: var(--warning); animation: pulse 1.5s infinite; }
+    .status.error { border-color: var(--error); color: var(--error); }
+    
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    
+    /* File Drop */
+    .file-drop {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 15px;
+    }
+    .file-drop:hover, .file-drop.dragover {
+      border-color: var(--primary);
+      background: rgba(0,212,255,0.05);
+    }
+    .file-drop .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .file-drop .hint { font-size: 0.85rem; color: var(--text-dim); }
+    
+    /* File List */
+    .file-list { max-height: 250px; overflow-y: auto; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .file-item .info { flex: 1; min-width: 0; }
+    .file-item .name { 
+      font-size: 0.9rem; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+    }
+    .file-item .size { font-size: 0.75rem; color: var(--text-dim); }
+    .file-item .progress-wrap { width: 100px; margin: 0 15px; }
+    .file-item .progress-bar {
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .file-item .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+      transition: width 0.3s ease;
+    }
+    .file-item .percent { font-size: 0.75rem; color: var(--text-dim); width: 40px; text-align: right; }
+    .file-item .status-icon { font-size: 1.2rem; margin-left: 10px; }
+    
+    /* Input */
+    .input-group { margin-bottom: 15px; }
+    .input-group input {
+      width: 100%;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 1rem;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      transition: all 0.2s ease;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(0,212,255,0.05);
+    }
+    .input-group input::placeholder { color: var(--text-dim); }
+    
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+    .stat-item { text-align: center; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px; }
+    .stat-item .value { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+    .stat-item .label { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+    
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      z-index: 1000;
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--error); }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>⚡ EasyLink</h1>
+      <p>跨设备高速文件传输 · 点对点加密</p>
+    </header>
+    
+    <div class="main-grid">
+      <!-- 我的设备 -->
+      <div class="card">
+        <h2>📱 我的设备</h2>
+        <div class="code-display">
+          <div class="label">设备代码</div>
+          <div class="code-number" id="my-code">-----</div>
+        </div>
+        <div class="qr-code" id="qr-code"></div>
+        <button class="btn btn-primary" id="btn-gen-code">🔄 刷新代码</button>
+        <button class="btn btn-secondary" id="btn-copy">📋 复制代码</button>
+        <div class="status" id="status">等待初始化...</div>
+        <div style="margin-top: 15px; font-size: 0.8rem; color: var(--text-dim);">
+          <div>连接历史</div>
+          <div id="history" style="margin-top: 8px;">暂无</div>
+        </div>
+      </div>
+      
+      <!-- 文件传输 -->
+      <div class="card">
+        <h2>📤 文件传输</h2>
+        <div class="file-drop" id="file-drop">
+          <div class="icon">📁</div>
+          <div>拖拽文件到此处</div>
+          <div class="hint">或点击选择 · 支持大文件</div>
+          <input type="file" id="file-input" multiple style="display: none;">
+        </div>
+        <div class="file-list" id="file-list">
+          <div style="text-align: center; color: var(--text-dim); padding: 20px;">
+            选择文件后等待连接
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-send" disabled>🚀 发送文件</button>
+        <button class="btn btn-secondary" id="btn-clear">🗑️ 清空列表</button>
+      </div>
+      
+      <!-- 连接设备 -->
+      <div class="card">
+        <h2>📲 连接设备</h2>
+        <div class="input-group">
+          <input type="text" id="remote-code" placeholder="输入对方代码 (5位)" maxlength="5">
+        </div>
+        <button class="btn btn-primary" id="btn-connect">🔗 连接设备</button>
+        <button class="btn btn-secondary" id="btn-disconnect" disabled>❌ 断开连接</button>
+        
+        <div class="stats">
+          <div class="stat-item">
+            <div class="value" id="sent-count">0</div>
+            <div class="label">已发送</div>
+          </div>
+          <div class="stat-item">
+            <div class="value" id="recv-count">0</div>
+            <div class="label">已接收</div>
+          </div>
+          <div class="stat-item">
+            <div class="value" id="total-size">0</div>
+            <div class="label">MB</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px; font-size: 0.8rem; color: var(--text-dim); line-height: 1.6;">
+          <strong>使用说明：</strong><br>
+          1. 双方打开页面生成代码<br>
+          2. 输入对方代码连接<br>
+          3. 选择文件开始传输<br>
+          4. 支持断点续传
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="toast" id="toast"></div>
+  
+  <script>
+    // ========== 配置 ==========
+    const CHUNK_SIZE = 64 * 1024; // 64KB 分片
+    const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
+    const PEER_PREFIX = 'easylink_v2_';
+    
+    // ========== 状态 ==========
+    let state = {
+      code: '',
+      peer: null,
+      conn: null,
+      isHost: false,
+      files: [],
+      sentCount: 0,
+      recvCount: 0,
+      totalSize: 0,
+      history: []
+    };
+    
+    // ========== 工具函数 ==========
+    function showToast(msg, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.className = 'toast ' + type;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+    
+    function updateStatus(msg, type = '') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+    
+    // ========== PeerJS 管理 ==========
+    function generateCode() {
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return String(arr[0] % 90000 + 10000);
+    }
+    
+    function initPeer() {
+      if (state.peer) {
+        state.peer.destroy();
+      }
+      
+      state.code = generateCode();
+      document.getElementById('my-code').textContent = state.code;
+      
+      // 生成二维码
+      const qrData = JSON.stringify({ code: state.code, v: 2 });
+      QRCode.toCanvas(document.createElement('canvas'), qrData, { 
+        width: 130, 
+        margin: 0,
+        color: { dark: '#000000', light: '#ffffff' }
+      }, (err, canvas) => {
+        if (!err) {
+          const container = document.getElementById('qr-code');
+          container.innerHTML = '';
+          container.appendChild(canvas);
+        }
+      });
+      
+      updateStatus('正在连接服务器...', 'connecting');
+      
+      const peerId = PEER_PREFIX + state.code;
+      state.peer = new Peer(peerId, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      });
+      
+      state.peer.on('open', () => {
+        updateStatus('等待连接...', '');
+        saveState();
+      });
+      
+      state.peer.on('connection', (conn) => {
+        setupConnection(conn, true);
+      });
+      
+      state.peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          generateCode();
+          initPeer();
+        } else {
+          updateStatus('连接失败: ' + err.type, 'error');
+        }
+      });
+    }
+    
+    function connectToPeer(remoteCode) {
+      if (!remoteCode || remoteCode.length !== 5) {
+        showToast('请输入有效的5位代码', 'error');
+        return;
+      }
+      if (!state.peer || !state.peer.open) {
+        showToast('正在初始化，请稍候', 'error');
+        return;
+      }
+      
+      updateStatus('正在连接...', 'connecting');
+      const conn = state.peer.connect(PEER_PREFIX + remoteCode, { reliable: true });
+      
+      conn.on('open', () => {
+        setupConnection(conn, false);
+      });
+      
+      conn.on('error', (err) => {
+        updateStatus('连接失败', 'error');
+        showToast('连接失败: ' + err.type, 'error');
+      });
+    }
+    
+    function setupConnection(conn, isHost) {
+      state.conn = conn;
+      state.isHost = isHost;
+      
+      conn.on('open', () => {
+        updateStatus('✅ 已连接', 'connected');
+        document.getElementById('btn-send').disabled = false;
+        document.getElementById('btn-disconnect').disabled = false;
+        
+        // 发送确认
+        conn.send({ type: 'ack' });
+        
+        // 保存状态
+        saveState();
+        addHistory(conn.peer.replace(PEER_PREFIX, ''));
+        showToast('连接成功！', 'success');
+      });
+      
+      conn.on('data', (data) => {
+        handleData(data);
+      });
+      
+      conn.on('close', () => {
+        updateStatus('连接已断开', '');
+        document.getElementById('btn-send').disabled = true;
+        document.getElementById('btn-disconnect').disabled = true;
+        state.conn = null;
+      });
+    }
+    
+    // ========== 文件传输 ==========
+    function handleData(data) {
+      if (data.type === 'file-start') {
+        receiveFileStart(data);
+      } else if (data.type === 'file-chunk') {
+        receiveFileChunk(data);
+      } else if (data.type === 'file-end') {
+        receiveFileEnd(data);
+      } else if (data.type === 'file-request') {
+        sendFileData(data.filename, data.index);
+      } else if (data.type === 'ack') {
+        console.log('收到连接确认');
+      }
+    }
+    
+    // 发送文件 - 分片
+    async function sendFile(fileObj, index) {
+      const file = fileObj.file;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const fileId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+      
+      // 发送开始信息
+      state.conn.send({
+        type: 'file-start',
+        fileId,
+        filename: file.name,
+        size: file.size,
+        totalChunks,
+        index
+      });
+      
+      // 分片发送
+      const buffer = await file.arrayBuffer();
+      let offset = 0;
+      let chunkIndex = 0;
+      
+      while (offset < file.size) {
+        const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
+        state.conn.send({
+          type: 'file-chunk',
+          fileId,
+          chunkIndex,
+          totalChunks,
+          data: chunk,
+          filename: file.name
+        });
+        
+        offset += CHUNK_SIZE;
+        chunkIndex++;
+        
+        // 更新进度
+        fileObj.progress = Math.round((offset / file.size) * 100);
+        updateFileList();
+        
+        // 让出主线程
+        await new Promise(r => setTimeout(r, 10));
+      }
+      
+      // 发送完成
+      state.conn.send({
+        type: 'file-end',
+        fileId,
+        filename: file.name
+      });
+      
+      fileObj.status = 'done';
+      state.sentCount++;
+      state.totalSize += file.size;
+      updateStats();
+      updateFileList();
+    }
+    
+    // 接收文件
+    const receiveBuffer = new Map();
+    
+    function receiveFileStart(data) {
+      receiveBuffer.set(data.fileId, {
+        filename: data.filename,
+        size: data.size,
+        chunks: new Array(data.totalChunks),
+        received: 0
+      });
+    }
+    
+    function receiveFileChunk(data) {
+      const file = receiveBuffer.get(data.fileId);
+      if (file) {
+        file.chunks[data.chunkIndex] = data.data;
+        file.received++;
+        
+        // 广播进度（给UI用）
+        const progress = Math.round((file.received / file.chunks.length) * 100);
+        
+        if (file.received === file.chunks.length) {
+          // 全部接收完成，组装文件
+          const blob = new Blob(file.chunks);
+          downloadFile(blob, file.filename);
+          receiveBuffer.delete(data.fileId);
+        }
+      }
+    }
+    
+    function receiveFileEnd(data) {
+      // 文件接收完成
+    }
+    
+    function downloadFile(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      state.recvCount++;
+      state.totalSize += blob.size;
+      updateStats();
+      showToast(`✅ 已接收: ${filename}`, 'success');
+    }
+    
+    // ========== UI 更新 ==========
+    function updateFileList() {
+      const list = document.getElementById('file-list');
+      if (state.files.length === 0) {
+        list.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 20px;">选择文件后等待连接</div>';
+        return;
+      }
+      
+      list.innerHTML = state.files.map((f, i) => `
+        <div class="file-item">
+          <div class="info">
+            <div class="name">${f.file.name}</div>
+            <div class="size">${formatSize(f.file.size)}</div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${f.progress}%"></div>
+            </div>
+          </div>
+          <div class="percent">${f.progress}%</div>
+          <div class="status-icon">${f.status === 'done' ? '✅' : f.status === 'sending' ? '📤' : '⏳'}</div>
+        </div>
+      `).join('');
+    }
+    
+    function updateStats() {
+      document.getElementById('sent-count').textContent = state.sentCount;
+      document.getElementById('recv-count').textContent = state.recvCount;
+      document.getElementById('total-size').textContent = (state.totalSize / 1024 / 1024).toFixed(1);
+    }
+    
+    function addHistory(code) {
+      state.history.unshift({ code, time: new Date().toLocaleTimeString() });
+      if (state.history.length > 5) state.history.pop();
+      
+      document.getElementById('history').innerHTML = state.history.map(h => 
+        `<div>${h.time} - ${h.code}</div>`
+      ).join('');
+    }
+    
+    // ========== 本地存储 ==========
+    function saveState() {
+      try {
+        localStorage.setItem('easylink_state', JSON.stringify({
+          code: state.code,
+          history: state.history,
+          sentCount: state.sentCount,
+          recvCount: state.recvCount,
+          totalSize: state.totalSize
+        }));
+      } catch(e) {}
+    }
+    
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('easylink_state'));
+        if (saved) {
+          state.history = saved.history || [];
+          state.sentCount = saved.sentCount || 0;
+          state.recvCount = saved.recvCount || 0;
+          state.totalSize = saved.totalSize || 0;
+          updateStats();
+          
+          document.getElementById('history').innerHTML = state.history.map(h => 
+            `<div>${h.time} - ${h.code}</div>`
+          ).join('');
+        }
+      } catch(e) {}
+    }
+    
+    // ========== 事件绑定 ==========
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      initPeer();
+      
+      // 刷新代码
+      document.getElementById('btn-gen-code').onclick = initPeer;
+      
+      // 复制代码
+      document.getElementById('btn-copy').onclick = () => {
+        navigator.clipboard.writeText(state.code).then(
+          () => showToast('已复制到剪贴板', 'success'),
+          () => showToast('复制失败', 'error')
+        );
+      };
+      
+      // 连接设备
+      document.getElementById('btn-connect').onclick = () => {
+        const code = document.getElementById('remote-code').value.trim();
+        connectToPeer(code);
+      };
+      
+      // 断开连接
+      document.getElementById('btn-disconnect').onclick = () => {
+        if (state.conn) {
+          state.conn.close();
+          state.conn = null;
+        }
+        updateStatus('已断开连接', '');
+        document.getElementById('btn-send').disabled = true;
+        document.getElementById('btn-disconnect').disabled = true;
+      };
+      
+      // 文件选择
+      const fileDrop = document.getElementById('file-drop');
+      const fileInput = document.getElementById('file-input');
+      
+      fileDrop.onclick = () => fileInput.click();
+      fileInput.onchange = (e) => {
+        Array.from(e.target.files).forEach(file => {
+          state.files.push({ file, progress: 0, status: 'pending' });
+        });
+        updateFileList();
+      };
+      
+      // 拖拽
+      fileDrop.ondragover = (e) => { e.preventDefault(); fileDrop.classList.add('dragover'); };
+      fileDrop.ondragleave = () => fileDrop.classList.remove('dragover');
+      fileDrop.ondrop = (e) => {
+        e.preventDefault();
+        fileDrop.classList.remove('dragover');
+        Array.from(e.dataTransfer.files).forEach(file => {
+          state.files.push({ file, progress: 0, status: 'pending' });
+        });
+        updateFileList();
+      };
+      
+      // 发送文件
+      document.getElementById('btn-send').onclick = async () => {
+        if (!state.conn || !state.conn.open) {
+          showToast('请先建立连接', 'error');
+          return;
+        }
+        
+        const pending = state.files.filter(f => f.status === 'pending');
+        for (const f of pending) {
+          f.status = 'sending';
+          updateFileList();
+          await sendFile(f, state.files.indexOf(f));
+        }
+      };
+      
+      // 清空列表
+      document.getElementById('btn-clear').onclick = () => {
+        state.files = [];
+        updateFileList();
+      };
+      
+      // 限制输入
+      document.getElementById('remote-code').oninput = (e) => {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 5);
+      };
+    });
+  </script>
+</body>
+</html>
