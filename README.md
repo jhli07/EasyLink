@@ -1,72 +1,84 @@
 # ⚡ EasyLink
 
-[English](./README_EN.md) | 中文
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
+  <img src="https://img.shields.io/badge/version-2.0-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/WebRTC-PeerJS-orange.svg" alt="Tech">
+</p>
 
-一个简约的端对端文件传输工具，基于 WebRTC 点对点传输，无需服务器中转。
+> English | [中文](./README_ZH.md)
 
-## ✨ 特性
+A minimalist end-to-end file transfer tool based on WebRTC P2P transmission. No server needed, privacy guaranteed.
 
-- 🔗 **点对点传输** - 数据不经过服务器，完全隐私
-- 📱 **跨平台** - 支持所有现代浏览器
-- 📦 **大文件支持** - 分片传输，理论上无大小限制
-- 🔒 **端到端加密** - WebRTC DTLS 加密
-- 📱 **QR 配对** - 手机扫码即可连接
-- 🎨 **现代 UI** - 简洁美观的界面设计
-- 💾 **状态保存** - 自动保存连接历史
+## ✨ Features
 
-## 🚀 快速开始
+- 🔗 **P2P Transmission** - Data goes directly between devices, no server involved
+- 📱 **Cross-Platform** - Works on all modern browsers
+- 📦 **Large File Support** - Chunked transmission, theoretically unlimited size
+- 🔒 **End-to-End Encryption** - WebRTC DTLS encryption
+- 📱 **QR Code Pairing** - Scan to connect instantly
+- 🎨 **Modern UI** - Beautiful dark theme design
+- 💾 **State Persistence** - Auto-saves connection history
 
-### 在线使用
+## 🚀 Quick Start
 
-访问 GitHub Pages：
+### Online Demo
+
+Visit GitHub Pages:
 ```
-https://jhli07.github.io/EasyLink/refactor/EasyLink.html
+https://jhli07.github.io/EasyLink/
 ```
 
-### 本地运行
+### Local Development
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/jhli07/EasyLink.git
 
-# 直接在浏览器打开 refactor/EasyLink.html
-# 或使用任意静态服务器
+# Open EasyLink.html in your browser
+# Or use any static file server
 npx serve .
 ```
 
-## 📖 使用方法
+## 📖 Usage
 
-1. **打开页面** - 在两台设备上打开 EasyLink
-2. **生成代码** - 点击"刷新代码"生成 5 位设备码
-3. **连接设备** - 在另一台设备输入对方的代码，点击连接
-4. **传输文件** - 选择文件，点击发送
+1. **Open the page** - Open EasyLink on both devices
+2. **Generate Code** - Click "Refresh Code" to get a 5-digit device code
+3. **Connect** - Enter the other device's code and click connect
+4. **Transfer** - Select files and click send
 
-### QR 配对（手机到电脑）
+### QR Pairing (Mobile to Desktop)
 
-1. 电脑上打开 EasyLink，显示二维码
-2. 手机扫描二维码自动识别设备码
-3. 点击连接即可
+1. Open EasyLink on computer - QR code will display
+2. Scan QR code with phone
+3. Click connect
 
-## 🔧 技术栈
+## 🔧 Tech Stack
 
-- **PeerJS** - WebRTC 封装库
-- **QRCode.js** - 二维码生成
-- **原生 JavaScript** - 无框架依赖
-- **WebRTC** - 浏览器原生点对点通信
+- **PeerJS** - WebRTC wrapper library
+- **QRCode** - QR code generation
+- **Vanilla JavaScript** - No framework dependencies
+- **WebRTC** - Browser native P2P communication
 
-## 📱 浏览器支持
+## 📱 Browser Support
 
-- Chrome / Edge 80+
-- Firefox 78+
-- Safari 14+
-- 移动端浏览器
+| Browser | Version |
+|---------|---------|
+| Chrome/Edge | 80+ |
+| Firefox | 78+ |
+| Safari | 14+ |
+| Mobile Browsers | Supported |
 
-## ⚠️ 注意事项
+## ⚠️ Notes
 
-- 需要 HTTPS 环境（或 localhost）
-- 某些网络环境下可能需要 TURN 中继服务器
-- 防火墙可能阻止 P2P 连接
+- Requires HTTPS environment (or localhost)
+- Some networks may need TURN relay server
+- Firewall may block P2P connections
 
-## 📄 许可证
+## 📄 License
 
-MIT License
+MIT License - See [LICENSE](./LICENSE) for details.
+
+---
+
+Made with ❤️ by [Agent_Li](https://github.com/jhli07)
